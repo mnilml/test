@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>每日数据概览</title>
+	</head>
+	<script src="https://cdn.jsdelivr.net/npm/vue@2.7.14"></script>
+	<script src="https://cdn.staticfile.org/axios/0.18.0/axios.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.1/dist/echarts.min.js"
+		integrity="sha256-IF32ooP8NPIzQg/fs7lVHpwG92JcCPE1TZAEyFSgGZU=" crossorigin="anonymous"></script>
+	<body>
+		<div id="app">
+			<!-- <div class="layui-container"> -->
+			<!-- <div class="layui-row"> -->
+			<h3 class="title">每日数据概览</h3>
+			<h3 class="new">昨日新增:</h3>
+			<div class="underline"></div>
+			<div class="yestUp">
+				<div class="user">
+					客户： <span style="color: #f55;">{{info.dn}}</span>
+				</div>
+				<div class="user" style="margin-left: 277px;">
+					预报包裹： <span style="color: #f55;">{{info.dp}}</span>
+				</div>
+			</div>
+			<div class="" style="border-bottom: 1px solid #707070;margin-top: 30px;">
+				<h3 class="new">昨日仓库汇总:</h3>
+				<div class="underline"></div>
+				<div class="winfo">
+					<div class="user-total">客户提交合并订单数：<span style="color: #f55;">{{sum}}</span></div>
+					<div id="mian" ref="main" style="width: 1100px;height:300px;">
+
+					</div>
+					<div style="width: 680px;height: 128px;display: flex;align-items: center;">
+						<div class="user">
+							箱数： <span style="color: #f55;">{{yesdBox}}</span>
+						</div>
+						<div class="user" style="margin-left: 277px;">
+							包裹数： <span style="color: #f55;">{{yesdPackage}}</span>
+						</div>
+					</div>
+					<div class="" style="font-size: 36px;color: #333;">
+						24小时打包率：<span style="color: #f55;">{{info.dps*100}}%</span>
+					</div>
+				</div>
+			</div>
+			<div class="" style="margin-top: 30px;padding-bottom: 200px;">
+				<h3 class="new">本月订单情况:</h3>
+				<div class="underline"></div>
+				<div class="winfo">
+					<div class="user-total"
+						style="display: grid;grid-template-columns: 1fr 1fr;grid-template-rows: 100px 100px;grid-gap: 10px;">
+						<div>订单数：<span style="color: #f55;">{{orderSum}}</span></div>
+						<div>箱数：<span style="color: #f55;">{{boxSum}}</span></div>
+						<div>包裹数：<span style="color: #f55;">{{info.mp}}</span></div>
+						<div>单均重（kg）：<span style="color: #f55;">{{weightMean}}</span></div>
+						<div>单均包裹数：<span style="color: #f55;">{{packageMean}}</span></div>
+					</div>
+					<div id="mianb" ref="mainb" style="width: 1100px;height:300px;">
+
+					</div>
+				</div>
+			</div>
+			<!-- </div> -->
+		</div>
+	</body>
+	<script>
+		new Vue({
+			el: "#app",
+			data: {
+				// info: '',
+				sum: 0,
+				orderSum: 0,
+				boxSum: 0,
+				yesdBox: 0,
+				yesdPackage: 0,
+				packageSum: 0,
+				weightMean: 0,
+				packageMean: 0,
+				info: {}
+			},
+			mounted() {
+				axios.get('https://api-jiyun.beegoplus.com/boss/everyday').then(res => {
+					this.info = res.data
+					var data = []
+					var datab = []
+					this.info.dos.map((item, index) => {
+						this.sum += item.oq
+						this.yesdBox += Number(item.bq)
+						this.yesdPackage += Number(item.pq)
+					})
+					this.info.mos.map(item=>{
+						this.boxSum += item.ob
+						this.orderSum += item.oo
+						this.packageSum += item.op
+						this.packageMean += Number(item.opp)
+						this.weightMean += Number(item.ow)
+					})
+					this.packageMean = parseFloat(this.packageMean/this.info.mos.length).toFixed(2)
+					this.weightMean = parseFloat(this.weightMean/this.info.mos.length/1000).toFixed(2)
+					this.info.dos.map(item => {
+						data.push({
+							value: item.oq,
+							name: item.cn_name+'('+`${item.oq}`+')'
+						})
+					})
+					this.info.mos.map(item=>{
+						datab.push({
+							value: (item.ob/this.orderSum)*100,
+							name: item.cn_name+'('+`${((item.ob/this.orderSum)*100).toFixed(2)}%`+')'
+						})
+					})
+					data.sort((a, b) => {
+						return a.value < b.value ? 1 : -1;
+					})
+					datab.sort((a, b) => {
+						return a.value < b.value ? 1 : -1;
+					})
+					var count = 0
+					var countb = 0
+					data.map((item, index)=>{
+						if(index > 4 ){
+							count += item.value
+						}
+					})
+					datab.map((item, index)=>{
+						if(index > 4 ){
+							countb += item.value
+						}
+					})
+					data = data.slice(0,5)
+					datab = datab.slice(0,5)
+					data.push(({
+						value: count,
+						name:'其他'+'(' +`${count}`+')'
+					}))
+					datab.push(({
+						value: countb,
+						name:'其他'+'(' + `${countb.toFixed(2)}%`+')'
+					}))
+					// 基于准备好的dom，初始化echarts实例
+					var myChart = echarts.init(this.$refs.main);
+					var myChartb = echarts.init(this.$refs.mainb);
+					// 指定图表的配置项和数据
+					var option = {
+
+						tooltip: {
+							trigger: 'item'
+						},
+						legend: {
+							left: 'left',
+							top: '45%',
+							itemWidth: 64,
+							itemHeight: 32,
+							width: '55%',
+							textStyle:{
+								fontSize: 24
+							}
+						},
+						series: [{
+							type: 'pie',
+							radius: '90%',
+							center: ['75%', '50%'],
+							data: data,
+							emphasis: {
+								itemStyle: {
+									shadowBlur: 10,
+									shadowOffsetX: 0,
+									shadowColor: 'rgba(0, 0, 0, 0.5)'
+								}
+							}
+						}],
+						textStyle: {
+							fontSize: 24
+						}
+					};
+					var optionb = {
+
+						tooltip: {
+							trigger: 'item'
+						},
+						legend: {
+							left: 'left',
+							top: '45%',
+							itemWidth: 64,
+							itemHeight: 32,
+							width: '55%',
+							textStyle:{
+								fontSize: 24
+							},
+							itemStyle:{
+								
+							},
+							itemGap: 30
+						},
+						series: [{
+							type: 'pie',
+							radius: '90%',
+							center: ['75%', '50%'],
+							data: datab,
+							emphasis: {
+								itemStyle: {
+									shadowBlur: 10,
+									shadowOffsetX: 0,
+									shadowColor: 'rgba(0, 0, 0, 0.5)'
+								}
+							}
+						}],
+						textStyle: {
+							fontSize: 24
+						}
+					};
+					// 使用刚指定的配置项和数据显示图表。
+					myChart.setOption(option);
+					myChartb.setOption(optionb);
+				})
+
+
+			}
+		})
+	</script>
+	<script>
+
+	</script>
+	<style>
+		body {
+			width: 1080px;
+			height: 1900px;
+			padding: 60px;
+		}
+
+		.title {
+			width: 100%;
+			color: red;
+			font-size: 42px;
+			/* margin-top: 20px; */
+			text-align: center;
+		}
+
+		.new {
+			font-size: 42px;
+			margin-top: 20px;
+		}
+
+		.underline {
+			margin-top: 34px;
+			width: 480px;
+			border-bottom: 1px dashed #707070;
+		}
+
+		.yestUp {
+			/* width: 960px; */
+			height: 128px;
+			display: flex;
+			align-items: center;
+			/* justify-content: space-between; */
+			padding: 0 30px;
+			border-bottom: 1px solid #707070;
+		}
+
+		.user {
+			font-size: 36px;
+		}
+
+		.winfo {
+			padding: 38px;
+		}
+
+		.user-total {
+			font-size: 36px;
+			color: #333;
+		}
+	</style>
+</html>
